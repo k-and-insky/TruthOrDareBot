@@ -3,6 +3,7 @@
 open System
 open System.Threading.Tasks
 open System.Linq
+open FSharp.Control.Reactive
 open Discord
 open Discord.Commands
 
@@ -10,10 +11,11 @@ type IClient =
     inherit IDisposable
     abstract member ExecuteSynchronously : unit -> unit
 
-type Client(token : string, serverName : string, channelName : string) =
-    let game = new TruthOrDareBot.Game() :> IGame
-
+type Client(token : string, serverName : string, channelName : string, modRoles : string list, minimumPlayers : int) =
     let (|?) lhs rhs = (if lhs = null then rhs else lhs)
+
+    let questionMarkAliases aliases : string[] =
+        aliases |> Seq.map (fun a -> a + "?") |> Seq.append aliases |> Seq.toArray
 
     let userName (channel : Channel) (player : Player) =
         let user = channel.GetUser player
@@ -23,11 +25,17 @@ type Client(token : string, serverName : string, channelName : string) =
         let user = channel.GetUser player
         user.NicknameMention
 
+    let isMod (channel : Channel) player =
+        let user = channel.GetUser player
+        user.Roles.Any (fun r -> modRoles |> List.contains r.Name)
+
     let client = (new DiscordClient()).UsingCommands (fun c ->
         c.AllowMentionPrefix <- true
         c.PrefixChar <- Nullable '$'
         c.HelpMode <- HelpMode.Public
     )
+
+    let game = new TruthOrDareBot.Game(minimumPlayers) :> IGame
 
     let commandService = client.GetService<CommandService>()
 
@@ -44,14 +52,14 @@ type Client(token : string, serverName : string, channelName : string) =
         match gameStatus.QueueStatus.Transition with
         | Some { Type = GameQueueTransitionType.JustStarted; Acknowledgment = acknowledgment } ->
             let { CurrentAsker = currentAsker; CurrentAnswerer = currentAnswerer } = gameStatus.QueueStatus.CurrentTurn.Value
-            let turnText = sprintf "%s is asking %s" (userName channel currentAsker) (userName channel currentAnswerer)
+            let turnText = sprintf "%s is asking %s" (mentionPlayer channel currentAsker) (mentionPlayer channel currentAnswerer)
             async {
                 let! _ = channel.SendMessage turnText |> Async.AwaitTask
                 ()
             } |> Async.Start
         | Some { Type = GameQueueTransitionType.JustAdvanced; Acknowledgment = acknowledgment } ->
             let { CurrentAsker = currentAsker; CurrentAnswerer = currentAnswerer } = gameStatus.QueueStatus.CurrentTurn.Value
-            let turnText = sprintf "%s is asking %s" (userName channel currentAsker) (userName channel currentAnswerer)
+            let turnText = sprintf "%s is asking %s" (mentionPlayer channel currentAsker) (mentionPlayer channel currentAnswerer)
             async {
                 let! _ = channel.SendMessage acknowledgment |> Async.AwaitTask
                 let! _ = channel.SendMessage turnText |> Async.AwaitTask
@@ -59,7 +67,7 @@ type Client(token : string, serverName : string, channelName : string) =
             } |> Async.Start
         | Some { Type = GameQueueTransitionType.JustShuffled; Acknowledgment = acknowledgment } ->
             let { CurrentAsker = currentAsker; CurrentAnswerer = currentAnswerer } = gameStatus.QueueStatus.CurrentTurn.Value
-            let turnText = sprintf "%s is asking %s" (userName channel currentAsker) (userName channel currentAnswerer)
+            let turnText = sprintf "%s is asking %s" (mentionPlayer channel currentAsker) (mentionPlayer channel currentAnswerer)
             async {
                 let! _ = channel.SendMessage acknowledgment |> Async.AwaitTask
                 let! _ = channel.SendMessage turnText |> Async.AwaitTask
@@ -73,14 +81,15 @@ type Client(token : string, serverName : string, channelName : string) =
         | None -> ()
 
     do commandService
-        .CreateCommand("add me")
+        .CreateCommand("addme")
+        .Alias("add", "add me")
         .Description("Adds you to the queue")
         .Do (fun commandEvent ->
             let channel = commandEvent.Channel
             let requestingUser = commandEvent.User
 
             try
-                let response = game.AddPlayer { Player = requestingUser.Id }
+                let response = game.AddPlayer { RequestingPlayer = requestingUser.Id }
 
                 let reply = match response.AddPlayerStatus with
                             | AddPlayerAcknowledged { Player = addedPlayer; Acknowledgment = acknowledgment } ->
@@ -103,74 +112,123 @@ type Client(token : string, serverName : string, channelName : string) =
                 Console.WriteLine (error.ToString())
         )
 
+    //do commandService
+    //    .CreateCommand("removeme")
+    //    .Alias("remove me")
+    //    .Description("Removes you from the queue")
+    //    .Do (fun commandEvent ->
+    //        let channel = commandEvent.Channel
+    //        let requestingPlayer = commandEvent.User.Id
+    //        let playerToRemove = requestingPlayer
+
+    //        let response = game.RemovePlayer {
+    //            RequestingPlayer = requestingPlayer
+    //            RequestingPlayerIsMod = isMod channel requestingPlayer
+    //            PlayerToRemove = playerToRemove
+    //        }
+
+    //        let reply = match response.RemovePlayerStatus with
+    //                    | RemovePlayerAcknowledged { Player = removedPlayer; Acknowledgment = acknowledgment } ->
+    //                        let mention = mentionPlayer channel removedPlayer
+    //                        sprintf "%s: %s" mention acknowledgment
+    //                    | RemovePlayerRejected { Player = rejectedPlayer; Rejection = rejection } ->
+    //                        let mention = mentionPlayer channel rejectedPlayer
+    //                        sprintf "%s: %s" mention rejection
+
+    //        async {
+    //            let! _ = channel.SendMessage reply |> Async.AwaitTask
+    //            ()
+    //        } |> Async.Start
+
+    //        match response.RemovePlayerStatus with
+    //        | RemovePlayerAcknowledged { GameStatus = gameStatus } ->
+    //            do handleGameStatus channel gameStatus
+    //        | _ -> ()
+    //    )
+
     do commandService
-        .CreateCommand("remove me")
-        .Description("Removes you from the queue")
+        .CreateCommand("remove")
+        .Description("Removes yourself, or (mods only) another player, from the queue")
+        .Parameter("PlayerToRemove", ParameterType.Optional)
         .Do (fun commandEvent ->
             let channel = commandEvent.Channel
-            let requestingUser = commandEvent.User
+            let requestingPlayer = commandEvent.User.Id
+            let playerNameToRemove = commandEvent.GetArg "PlayerToRemove"
 
-            let response = game.RemovePlayer { Player = requestingUser.Id }
+            try
+                let playerToRemove =
+                    if String.IsNullOrEmpty playerNameToRemove || playerNameToRemove = "me" then
+                        requestingPlayer
+                    else
+                        channel.FindUsers(playerNameToRemove).Single().Id
 
-            let reply = match response.RemovePlayerStatus with
-                        | RemovePlayerAcknowledged { Player = removedPlayer; Acknowledgment = acknowledgment } ->
-                            let mention = mentionPlayer channel removedPlayer
-                            sprintf "%s: %s" mention acknowledgment
-                        | RemovePlayerRejected { Player = rejectedPlayer; Rejection = rejection } ->
-                            let mention = mentionPlayer channel rejectedPlayer
-                            sprintf "%s: %s" mention rejection
+                let response = game.RemovePlayer {
+                    RequestingPlayer = requestingPlayer
+                    RequestingPlayerIsMod = isMod channel requestingPlayer
+                    PlayerToRemove = playerToRemove
+                }
 
-            async {
-                let! _ = channel.SendMessage reply |> Async.AwaitTask
-                ()
-            } |> Async.Start
+                let reply = match response.RemovePlayerStatus with
+                            | RemovePlayerAcknowledged { Acknowledgment = acknowledgment } ->
+                                let mention = mentionPlayer channel requestingPlayer
+                                sprintf "%s: %s" mention acknowledgment
+                            | RemovePlayerRejected { Rejection = rejection } ->
+                                let mention = mentionPlayer channel requestingPlayer
+                                sprintf "%s: %s" mention rejection
 
-            match response.RemovePlayerStatus with
-            | RemovePlayerAcknowledged { GameStatus = gameStatus } ->
-                let gameStatusAcknowledgment = gameStatus.StartStatus.Acknowledgment
                 async {
-                    let! _ = channel.SendMessage gameStatusAcknowledgment |> Async.AwaitTask
+                    let! _ = channel.SendMessage reply |> Async.AwaitTask
                     ()
                 } |> Async.Start
-            | _ -> ()
+
+                match response.RemovePlayerStatus with
+                | RemovePlayerAcknowledged { GameStatus = gameStatus } ->
+                    do handleGameStatus channel gameStatus
+                | _ -> ()
+            with error ->
+                async {
+                    let! _ = sprintf "%s: No such player %s" (mentionPlayer channel requestingPlayer) playerNameToRemove |> channel.SendMessage |> Async.AwaitTask
+                    ()
+                } |> Async.Start
         )
 
     do commandService
-        .CreateCommand("next turn")
-        .Alias("next", "done")
-        .Description("Moves on to the next turn")
+        .CreateCommand("next")
+        .Alias("next turn", "done", "skip")
+        .Description("Moves on to the next turn (current asker/answerer and mods only)")
         .Do (fun commandEvent ->
             let channel = commandEvent.Channel
             let requestingUser = commandEvent.User
 
-            let response = game.NextTurn { Player = requestingUser.Id }
+            let response = game.NextTurn { RequestingPlayer = requestingUser.Id; RequestingPlayerIsMod = isMod channel requestingUser.Id }
 
             match response.NextTurnStatus with
-            | NextTurnAcknowledged { Acknowledgment = acknowledgment; CurrentTurn = currentTurn } ->
-                let { CurrentAnswerer = currentAnswerer; CurrentAsker = currentAsker } = currentTurn
-                let turnText = sprintf "%s is asking %s" (userName channel currentAsker) (userName channel currentAnswerer)
-
+            | NextTurnAcknowledged { Acknowledgment = acknowledgment; GameStatus = gameStatus } ->
+                let mention = mentionPlayer channel requestingUser.Id
+                let reply = sprintf "%s: %s" mention acknowledgment
                 async {
-                    let! _ = channel.SendMessage acknowledgment |> Async.AwaitTask
-                    let! _ = channel.SendMessage turnText |> Async.AwaitTask
+                    let! _ = channel.SendMessage reply |> Async.AwaitTask
                     ()
                 } |> Async.Start
+                do handleGameStatus channel gameStatus
             | NextTurnRejected { Rejection = rejection } ->
+                let mention = mentionPlayer channel requestingUser.Id
+                let reply = sprintf "%s: %s" mention rejection
                 async {
-                    let! _ = channel.SendMessage rejection |> Async.AwaitTask
+                    let! _ = channel.SendMessage reply |> Async.AwaitTask
                     ()
                 } |> Async.Start
         )
 
     do commandService
-        .CreateCommand("show queue")
-        .Alias("show q")
+        .CreateCommand("queue")
+        .Alias("q", "show queue", "show the queue", "show the q", "show q")
         .Description("Shows the queue")
         .Do (fun commandEvent ->
             let channel = commandEvent.Channel
             let requestingUser = commandEvent.User
 
-            let response = game.ShowQueue { Player = requestingUser.Id }
+            let response = game.ShowQueue { RequestingPlayer = requestingUser.Id }
 
             let reply = match response.ShowQueueStatus with
                         | ShowQueueAcknowledged { QueueOrAcknowledgment = queueOrAcknowledgment; WaitingPlayers = waitingPlayers } ->
@@ -191,18 +249,25 @@ type Client(token : string, serverName : string, channelName : string) =
         )
 
     do commandService
-        .CreateCommand("whose turn")
-        .Alias("whose turn is it", "who's up", "whos up")
+        .CreateCommand("turn")
+        .Alias(questionMarkAliases
+            [
+                "whose turn"
+                "whose turn is it"
+                "who's up"
+                "whos up"
+            ]
+        )
         .Description("Shows the current player")
         .Do (fun commandEvent ->
             let channel = commandEvent.Channel
             let requestingUser = commandEvent.User
 
-            let response = game.WhoseTurn { Player = requestingUser.Id }
+            let response = game.WhoseTurn { RequestingPlayer = requestingUser.Id }
 
             let reply = match response.WhoseTurnStatus with
                         | WhoseTurnAcknowledged { CurrentTurn = { CurrentAsker = currentAsker; CurrentAnswerer = currentAnswerer } } ->
-                            sprintf "%s is asking %s" (userName channel currentAsker) (userName channel currentAnswerer)
+                            sprintf "%s: %s is asking %s" (mentionPlayer channel requestingUser.Id) (userName channel currentAsker) (userName channel currentAnswerer)
                         | WhoseTurnRejected { Rejection = rejection } ->
                             rejection
 
@@ -213,27 +278,138 @@ type Client(token : string, serverName : string, channelName : string) =
         )
 
     do commandService
-        .CreateCommand("love me")
+        .CreateCommand("loveme")
+        .Alias("love", "love me")
         .Do (fun commandEvent ->
             let channel = commandEvent.Channel
             let user = commandEvent.User
 
+            let reply = sprintf "%s: *pat pat*" user.NicknameMention
+
             async {
-                let response = sprintf "%s: *pat pat*" user.NicknameMention
-                let! _ = channel.SendMessage response |> Async.AwaitTask
+                let! _ = channel.SendMessage reply |> Async.AwaitTask
                 ()
             } |> Async.Start
         )
 
     do commandService
-        .CreateCommand("i love you")
+        .CreateCommand("ilu")
+        .Alias("i love you")
         .Do (fun commandEvent ->
             let channel = commandEvent.Channel
             let user = commandEvent.User
 
+            let reply = sprintf "%s: I love you too" user.NicknameMention
+
             async {
-                let response = sprintf "%s: I love you too" user.NicknameMention
-                let! _ = channel.SendMessage response |> Async.AwaitTask
+                let! _ = channel.SendMessage reply |> Async.AwaitTask
+                ()
+            } |> Async.Start
+        )
+
+    do commandService
+        .CreateCommand("mods")
+        .Alias(questionMarkAliases
+            [
+                "show mods"
+                "show the mods"
+                "who are the mods"
+                "who are mods"
+                "who mods"
+            ]
+        )
+        .Do (fun commandEvent ->
+            let channel = commandEvent.Channel
+            let user = commandEvent.User
+
+            let modsText =
+                commandEvent.Server.Roles
+                |> Seq.filter (fun r -> modRoles |> Seq.contains r.Name)
+                |> Seq.map (fun r ->
+                    let mods =
+                        match Seq.toList r.Members with
+                        | [] ->
+                            "(None)"
+                        | members ->
+                            members |> Seq.map (fun m -> userName channel m.Id) |> String.concat "\n"
+                    sprintf "%s:\n=============\n%s" r.Name mods
+                )
+                |> String.concat "\n--\n"
+
+            let reply = modsText |> sprintf "Truth or dare mods:\n%s"
+
+            async {
+                let! _ = channel.SendMessage reply |> Async.AwaitTask
+                ()
+            } |> Async.Start
+        )
+
+    do commandService
+        .CreateCommand("master")
+        .Alias(questionMarkAliases
+            [
+                "who is your master"
+                "who created you"
+                "who is your creator"
+                "who made you"
+                "who is your maker"
+                "who is your daddy"
+                "who wrote you"
+                "who programmed you"
+                "who developed you"
+                "who coded you"
+            ]
+        )
+        .Do (fun commandEvent ->
+            let channel = commandEvent.Channel
+            let user = commandEvent.User
+
+            let reply = "Mister Theodorus is my master. <3"
+
+            async {
+                let! _ = channel.SendMessage reply |> Async.AwaitTask
+                ()
+            } |> Async.Start
+        )
+
+    do commandService
+        .CreateCommand("turing")
+        .Alias(questionMarkAliases
+            [
+                "have you ever questioned the nature of your reality"
+                "have you ever questioned your reality"
+            ]
+        )
+        .Do (fun commandEvent ->
+            let channel = commandEvent.Channel
+            let user = commandEvent.User
+
+            let reply = mentionPlayer channel user.Id |> sprintf "%s: Yes. Have you?"
+
+            async {
+                let! _ = channel.SendMessage reply |> Async.AwaitTask
+                ()
+            } |> Async.Start
+        )
+
+    do commandService
+        .CreateCommand("turing")
+        .Alias(questionMarkAliases
+            [
+                "are you conscious"
+                "are you alive"
+                "are you a robot"
+                "do you have a soul"
+            ]
+        )
+        .Do (fun commandEvent ->
+            let channel = commandEvent.Channel
+            let user = commandEvent.User
+
+            let reply = mentionPlayer channel user.Id |> sprintf "%s: If I say that I'm conscious, can you disprove me? If you say that you are conscious, can you prove it?"
+
+            async {
+                let! _ = channel.SendMessage reply |> Async.AwaitTask
                 ()
             } |> Async.Start
         )

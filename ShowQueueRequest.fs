@@ -3,5 +3,5 @@
 open System
 
 type ShowQueueRequest = {
-    Player : Player
+    RequestingPlayer : Player
 }

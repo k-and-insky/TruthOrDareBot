@@ -3,5 +3,6 @@
 open System
 
 type NextTurnRequest = {
-    Player : Player
+    RequestingPlayer : Player
+    RequestingPlayerIsMod : bool
 }

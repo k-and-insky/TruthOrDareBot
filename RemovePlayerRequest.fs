@@ -3,5 +3,7 @@
 open System
 
 type RemovePlayerRequest = {
-    Player : Player
+    RequestingPlayer : Player
+    PlayerToRemove : Player
+    RequestingPlayerIsMod : bool
 }

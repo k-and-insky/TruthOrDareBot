@@ -3,5 +3,5 @@
 open System
 
 type AddPlayerRequest = {
-    Player : Player
+    RequestingPlayer : Player
 }

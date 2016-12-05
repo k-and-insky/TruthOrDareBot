@@ -31,18 +31,34 @@ module Replies =
 
     let addPlayerRejected() =
         sample [
-            "You're already in the queue, dingus."
+            "You're already in the game, dingus."
         ]
 
-    let removePlayerAcknowledged() =
+    let removePlayerSelfAcknowledged() =
         sample [
             "Aww, you're no fun."
             "Alright... Leave if you must."
         ]
 
-    let removePlayerRejected() =
+    let removePlayerOtherAcknowledged() =
         sample [
-            "You're not in the queue, silly!"
+            "Alright, I removed them, but I'm not happy about it."
+            "For you, anything. *Poof!* They're gone."
+        ]
+
+    let removePlayerSelfNotInGameRejected() =
+        sample [
+            "You're not in the game, silly!"
+        ]
+
+    let removePlayerOtherNotInGameRejected() =
+        sample [
+            "Um, they're not in the game..."
+        ]
+
+    let removePlayerOtherNotModRejected() =
+        sample [
+            "Only mods can remove other players from the game."
         ]
 
     let stayedStoppedGameAcknowledged() =
@@ -115,7 +131,12 @@ module Replies =
             "I can't advance the queue when there is no game in progress!"
         ]
 
-type Game() =
+    let nextTurnNotModOrCurrentPlayerRejected() =
+        sample [
+            "Only mods or current asker/answerer can advance the queue."
+        ]
+
+type Game(minimumPlayers : int) =
     let mutable queue : Player list = []
     let mutable players : Set<Player> = Set.empty
 
@@ -138,7 +159,7 @@ type Game() =
 
     let getGameStatus() : GameStatus =
         let (newGameState, gameStateTransitionType) =
-            if players.Count >= 2 then
+            if players.Count >= minimumPlayers then
                 let transition =
                     if currentGameStatus.StartStatus.StateType = GameStateType.InProgress then
                         None
@@ -238,7 +259,7 @@ type Game() =
 
     interface IGame with
         member this.AddPlayer addPlayerRequest =
-            let { AddPlayerRequest.Player = player } = addPlayerRequest
+            let { AddPlayerRequest.RequestingPlayer = player } = addPlayerRequest
 
             let addPlayerStatus =
                 if players.Contains player then
@@ -265,27 +286,43 @@ type Game() =
             }
 
         member this.RemovePlayer removePlayerRequest =
-            let { RemovePlayerRequest.Player = player } = removePlayerRequest
+            let { RemovePlayerRequest.PlayerToRemove = playerToRemove; RequestingPlayer = requestingPlayer; RequestingPlayerIsMod = requestingPlayerIsMod } = removePlayerRequest
 
-            let removePlayerStatus =
-                if players.Contains player then
-                    players <- players.Remove player
+            let removePlayer acknowledged rejected =
+                if players.Contains playerToRemove then
+                    players <- players.Remove playerToRemove
 
-                    let removePlayerAcknowledgment = Replies.removePlayerAcknowledged()
+                    if queue |> List.contains playerToRemove then
+                        queue <- queue |> List.except [playerToRemove]
+
+                    let removePlayerAcknowledgment = acknowledged()
 
                     do updateGameStatus()
 
                     RemovePlayerStatus.RemovePlayerAcknowledged {
-                        Player = player
+                        Player = playerToRemove
                         Acknowledgment = removePlayerAcknowledgment
                         GameStatus = currentGameStatus
                     }
                 else
-                    let rejection = Replies.removePlayerRejected()
+                    let rejection = rejected()
                     RemovePlayerStatus.RemovePlayerRejected {
-                        Player = player
+                        Player = playerToRemove
                         Rejection = rejection
                     }
+
+            let removePlayerStatus =
+                if requestingPlayer = playerToRemove then
+                    removePlayer Replies.removePlayerSelfAcknowledged Replies.removePlayerSelfNotInGameRejected
+                else
+                    if requestingPlayerIsMod then
+                        removePlayer Replies.removePlayerOtherAcknowledged Replies.removePlayerOtherNotInGameRejected
+                    else
+                        let rejection = Replies.removePlayerOtherNotModRejected()
+                        RemovePlayerStatus.RemovePlayerRejected {
+                            Player = playerToRemove;
+                            Rejection = rejection
+                        }
             
             {
                 RemovePlayerStatus = removePlayerStatus
@@ -333,18 +370,27 @@ type Game() =
         member this.NextTurn nextTurnRequest =
             match currentGameStatus.StartStatus.StateType with
             | GameStateType.InProgress ->
-                queue <- match queue with
-                         | [] -> queue
-                         | _ :: newQueue -> newQueue
+                let { CurrentAsker = currentAsker; CurrentAnswerer = currentAnswerer } = currentGameStatus.QueueStatus.CurrentTurn.Value
+                let player = nextTurnRequest.RequestingPlayer
+                if nextTurnRequest.RequestingPlayerIsMod || player = currentAsker || player = currentAnswerer then
+                    queue <- match queue with
+                             | [] -> queue
+                             | _ :: newQueue -> newQueue
 
-                do updateGameStatus()
+                    do updateGameStatus()
 
-                {
-                    NextTurnStatus = NextTurnStatus.NextTurnAcknowledged {
-                        Acknowledgment = Replies.nextTurnAcknowledged()
-                        CurrentTurn = currentGameStatus.QueueStatus.CurrentTurn.Value
+                    {
+                        NextTurnStatus = NextTurnStatus.NextTurnAcknowledged {
+                            Acknowledgment = Replies.nextTurnAcknowledged()
+                            GameStatus = currentGameStatus
+                        }
                     }
-                }
+                else
+                    {
+                        NextTurnStatus = NextTurnRejected {
+                            Rejection = Replies.nextTurnNotModOrCurrentPlayerRejected()
+                        }
+                    }
             | GameStateType.Stopped ->
                 {
                     NextTurnStatus = NextTurnStatus.NextTurnRejected {

@@ -4,7 +4,7 @@ open System
 
 type NextTurnAcknowledged = {
     Acknowledgment : string
-    CurrentTurn : GameTurn
+    GameStatus : GameStatus
 }
 
 type NextTurnRejected = {

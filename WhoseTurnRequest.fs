@@ -3,5 +3,5 @@
 open System
 
 type WhoseTurnRequest = {
-    Player : Player
+    RequestingPlayer : Player
 }
