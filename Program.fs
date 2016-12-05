@@ -1,7 +1,7 @@
 ﻿open System
 open TruthOrDareBot
 
-let token = "MjU0NDU0ODQ3MzA1Mjg1NjMz.CyPTHw.bTlyjOc5_pMY7InHkAOCqt7-gJg"
+let token = Environment.GetEnvironmentVariable "TRUTH_OR_DARE_BOT_TOKEN"
 let serverName = "truth-or-dare-bot-test"
 let channelName = "truth-or-dare"
 let modRoles = ["Administrators"; "Moderators"; "Staff"; "Ambassadors"]
