@@ -19,6 +19,10 @@ type Client(token : string, serverName : string, channelName : string) =
         let user = channel.GetUser player
         user.Nickname |? user.Name
 
+    let mentionPlayer (channel : Channel) player =
+        let user = channel.GetUser player
+        user.NicknameMention
+
     let client = (new DiscordClient()).UsingCommands (fun c ->
         c.AllowMentionPrefix <- true
         c.PrefixChar <- Nullable '$'
@@ -74,29 +78,19 @@ type Client(token : string, serverName : string, channelName : string) =
         .Do (fun commandEvent ->
             let channel = commandEvent.Channel
             let requestingUser = commandEvent.User
-                
-            async {
-                let! _ = channel.SendMessage "Got an 'add me' request..." |> Async.AwaitTask
-                ()
-            } |> Async.Start
 
             try
-                let mentionPlayer player =
-                    let user = channel.GetUser player
-                    user.NicknameMention
-
                 let response = game.AddPlayer { Player = requestingUser.Id }
 
                 let reply = match response.AddPlayerStatus with
                             | AddPlayerAcknowledged { Player = addedPlayer; Acknowledgment = acknowledgment } ->
-                                let mention = mentionPlayer addedPlayer
+                                let mention = mentionPlayer channel addedPlayer
                                 sprintf "%s: %s" mention acknowledgment
                             | AddPlayerRejected { Player = rejectedPlayer; Rejection = rejection } ->
-                                let mention = mentionPlayer rejectedPlayer
+                                let mention = mentionPlayer channel rejectedPlayer
                                 sprintf "%s: %s" mention rejection
 
                 async {
-                    let! _ = channel.SendMessage "Responding to an 'add me' request..." |> Async.AwaitTask
                     let! _ = channel.SendMessage reply |> Async.AwaitTask
                     ()
                 } |> Async.Start
@@ -116,18 +110,14 @@ type Client(token : string, serverName : string, channelName : string) =
             let channel = commandEvent.Channel
             let requestingUser = commandEvent.User
 
-            let mentionPlayer player =
-                let user = channel.GetUser player
-                user.NicknameMention
-
             let response = game.RemovePlayer { Player = requestingUser.Id }
 
             let reply = match response.RemovePlayerStatus with
                         | RemovePlayerAcknowledged { Player = removedPlayer; Acknowledgment = acknowledgment } ->
-                            let mention = mentionPlayer removedPlayer
+                            let mention = mentionPlayer channel removedPlayer
                             sprintf "%s: %s" mention acknowledgment
                         | RemovePlayerRejected { Player = rejectedPlayer; Rejection = rejection } ->
-                            let mention = mentionPlayer rejectedPlayer
+                            let mention = mentionPlayer channel rejectedPlayer
                             sprintf "%s: %s" mention rejection
 
             async {
@@ -143,6 +133,33 @@ type Client(token : string, serverName : string, channelName : string) =
                     ()
                 } |> Async.Start
             | _ -> ()
+        )
+
+    do commandService
+        .CreateCommand("next turn")
+        .Alias("next", "done")
+        .Description("Moves on to the next turn")
+        .Do (fun commandEvent ->
+            let channel = commandEvent.Channel
+            let requestingUser = commandEvent.User
+
+            let response = game.NextTurn { Player = requestingUser.Id }
+
+            match response.NextTurnStatus with
+            | NextTurnAcknowledged { Acknowledgment = acknowledgment; CurrentTurn = currentTurn } ->
+                let { CurrentAnswerer = currentAnswerer; CurrentAsker = currentAsker } = currentTurn
+                let turnText = sprintf "%s is asking %s" (userName channel currentAsker) (userName channel currentAnswerer)
+
+                async {
+                    let! _ = channel.SendMessage acknowledgment |> Async.AwaitTask
+                    let! _ = channel.SendMessage turnText |> Async.AwaitTask
+                    ()
+                } |> Async.Start
+            | NextTurnRejected { Rejection = rejection } ->
+                async {
+                    let! _ = channel.SendMessage rejection |> Async.AwaitTask
+                    ()
+                } |> Async.Start
         )
 
     do commandService

@@ -76,6 +76,8 @@
     <Compile Include="ShowQueueResponse.fs" />
     <Compile Include="WhoseTurnRequest.fs" />
     <Compile Include="WhoseTurnResponse.fs" />
+    <Compile Include="NextTurnRequest.fs" />
+    <Compile Include="NextTurnResponse.fs" />
     <Compile Include="Game.fs" />
     <Compile Include="Client.fs" />
     <Compile Include="Program.fs" />

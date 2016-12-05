@@ -8,11 +8,20 @@ type IGame =
     abstract member RemovePlayer : RemovePlayerRequest -> RemovePlayerResponse
     abstract member ShowQueue : ShowQueueRequest -> ShowQueueResponse
     abstract member WhoseTurn : WhoseTurnRequest -> WhoseTurnResponse
+    abstract member NextTurn : NextTurnRequest -> NextTurnResponse
+
+module Rando =
+    let random = Random()
+
+    let sample (ls : 'a list) =
+        ls.[random.Next ls.Length]
+
+    let shuffle ls =
+        ls |> List.sortBy (fun e -> random.Next())
+
+open Rando
 
 module Replies =
-    let sample (ls : 'a list) =
-        ls.[Random().Next ls.Length]
-
     let addPlayerAcknowledged() =
         sample [
             "Roger that."
@@ -96,7 +105,18 @@ module Replies =
             "Just shuffled queue."
         ]
 
+    let nextTurnAcknowledged() =
+        sample [
+            "Okey-dokey."
+        ]
+
+    let nextTurnGameStoppedRejected() =
+        sample [
+            "I can't advance the queue when there is no game in progress!"
+        ]
+
 type Game() =
+    let mutable queue : Player list = []
     let mutable players : Set<Player> = Set.empty
 
     let mutable currentGameStatus =
@@ -116,12 +136,7 @@ type Game() =
                 }
         }
 
-    let shuffle (players : Player list) : Player list =
-        players
-
     let getGameStatus() : GameStatus =
-        do Console.WriteLine "getGameStatus"
-
         let (newGameState, gameStateTransitionType) =
             if players.Count >= 2 then
                 let transition =
@@ -137,8 +152,6 @@ type Game() =
                     else
                         None
                 (GameStateType.Stopped, transition)
-        
-        do Console.WriteLine "computed new game state"
 
         let gameStateTransitionAcknowledgment =
             match gameStateTransitionType with
@@ -152,33 +165,28 @@ type Game() =
                     Replies.stayedInProgressGameAcknowledged()
                 | GameStateType.Stopped ->
                     Replies.stayedStoppedGameAcknowledged()
-        
-        do Console.WriteLine "computed transition acknowledgment"
 
-        let queue =
-            match gameStateTransitionType with
-            | Some GameStateTransitionType.JustStarted ->
-                players |> List.ofSeq |> shuffle
-            | Some GameStateTransitionType.JustStopped ->
-                []
-            | None ->
-                currentGameStatus.QueueStatus.Queue
-
-        do Console.WriteLine "computed queue"
+        queue <-
+                match gameStateTransitionType with
+                | Some GameStateTransitionType.JustStarted ->
+                    players |> List.ofSeq |> shuffle
+                | Some GameStateTransitionType.JustStopped ->
+                    []
+                | None ->
+                    if queue.Length > 1 then
+                        queue
+                    else
+                        players |> List.ofSeq |> shuffle
 
         let currentTurn =
-            match gameStateTransitionType with
-            | None ->
-                currentGameStatus.QueueStatus.CurrentTurn
-            | Some GameStateTransitionType.JustStarted ->
+            match newGameState with
+            | GameStateType.InProgress ->
                 Some {
-                    CurrentAnswerer = queue.[0]
-                    CurrentAsker = queue.[1]
+                    CurrentAsker = queue.[0]
+                    CurrentAnswerer = queue.[1]
                 }
-            | Some GameStateTransitionType.JustStopped ->
+            | GameStateType.Stopped ->
                 None
-
-        do Console.WriteLine "computed currentTurn"
 
         let gameQueueTransition =
             match gameStateTransitionType with
@@ -207,11 +215,7 @@ type Game() =
                             Acknowledgment = Replies.justAdvancedQueueAcknowledged()
                         }
 
-        do Console.WriteLine "computed gameQueueTransition"
-
         let waitingPlayers = Set.ofList queue |> Set.difference players |> List.ofSeq
-
-        do Console.WriteLine "computed waitingPlayers"
 
         {
             StartStatus =
@@ -229,6 +233,9 @@ type Game() =
                 }
         }
 
+    let updateGameStatus() =
+        currentGameStatus <- getGameStatus()
+
     interface IGame with
         member this.AddPlayer addPlayerRequest =
             let { AddPlayerRequest.Player = player } = addPlayerRequest
@@ -245,7 +252,7 @@ type Game() =
 
                     let addPlayerAcknowledgment = Replies.addPlayerAcknowledged()
 
-                    currentGameStatus <- getGameStatus()
+                    do updateGameStatus()
 
                     AddPlayerStatus.AddPlayerAcknowledged {
                         Player = player
@@ -266,7 +273,7 @@ type Game() =
 
                     let removePlayerAcknowledgment = Replies.removePlayerAcknowledged()
 
-                    currentGameStatus <- getGameStatus()
+                    do updateGameStatus()
 
                     RemovePlayerStatus.RemovePlayerAcknowledged {
                         Player = player
@@ -320,5 +327,27 @@ type Game() =
                 {
                     WhoseTurnStatus = WhoseTurnStatus.WhoseTurnRejected {
                         Rejection = Replies.whoseTurnRejected()
+                    }
+                }
+
+        member this.NextTurn nextTurnRequest =
+            match currentGameStatus.StartStatus.StateType with
+            | GameStateType.InProgress ->
+                queue <- match queue with
+                         | [] -> queue
+                         | _ :: newQueue -> newQueue
+
+                do updateGameStatus()
+
+                {
+                    NextTurnStatus = NextTurnStatus.NextTurnAcknowledged {
+                        Acknowledgment = Replies.nextTurnAcknowledged()
+                        CurrentTurn = currentGameStatus.QueueStatus.CurrentTurn.Value
+                    }
+                }
+            | GameStateType.Stopped ->
+                {
+                    NextTurnStatus = NextTurnStatus.NextTurnRejected {
+                        Rejection = Replies.nextTurnGameStoppedRejected()
                     }
                 }
