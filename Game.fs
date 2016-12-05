@@ -57,6 +57,11 @@ module Replies =
             "Boo, the game is stopped. :("
         ]
 
+    let waitingForGameStartAcknowledged() =
+        sample [
+            "Waiting for game to start."
+        ]
+
     let showQueueRejected() =
         sample [
             "There is no queue to show!"
@@ -71,78 +76,181 @@ module Replies =
             "The game is stopped."
         ]
 
+    let justAdvancedQueueAcknowledged() =
+        sample [
+            "Just advanced queue."
+        ]
+
+    let justStartedQueueAcknowledged() =
+        sample [
+            "Just started queue."
+        ]
+
+    let justStoppedQueueAcknowledged() =
+        sample [
+            "Just stopped queue."
+        ]
+
+    let justShuffledQueueAcknowledged() =
+        sample [
+            "Just shuffled queue."
+        ]
+
 type Game() =
-    let queue = new List<Player>()
+    let mutable players : Set<Player> = Set.empty
 
-    let getGameState() =
-        if queue.Count >= 2 then
-            GameState.InProgress
-        else
-            GameState.Stopped
+    let mutable currentGameStatus =
+        {
+            StartStatus =
+                {
+                    StateType = GameStateType.Stopped
+                    TransitionType = None
+                    Acknowledgment = ""
+                }
+            QueueStatus =
+                {
+                    Queue = []
+                    WaitingPlayers = []
+                    CurrentTurn = None
+                    Transition = None
+                }
+        }
 
-    let getGameStartStatus previousGameState =
-        let (newGameState, gameStateTransition) =
-            if queue.Count >= 2 then
+    let shuffle (players : Player list) : Player list =
+        players
+
+    let getGameStatus() : GameStatus =
+        do Console.WriteLine "getGameStatus"
+
+        let (newGameState, gameStateTransitionType) =
+            if players.Count >= 2 then
                 let transition =
-                    if previousGameState = GameState.InProgress then
-                        GameStateTransition.StayedInProgress
+                    if currentGameStatus.StartStatus.StateType = GameStateType.InProgress then
+                        None
                     else
-                        GameStateTransition.JustStarted
-                (GameState.InProgress, transition)
+                        Some GameStateTransitionType.JustStarted
+                (GameStateType.InProgress, transition)
             else
                 let transition =
-                    if previousGameState = GameState.InProgress then
-                        GameStateTransition.JustStopped
+                    if currentGameStatus.StartStatus.StateType = GameStateType.InProgress then
+                        Some GameStateTransitionType.JustStopped
                     else
-                        GameStateTransition.StayedStopped
-                (GameState.Stopped, transition)
+                        None
+                (GameStateType.Stopped, transition)
+        
+        do Console.WriteLine "computed new game state"
 
         let gameStateTransitionAcknowledgment =
-            match gameStateTransition with
-            | GameStateTransition.JustStarted ->
+            match gameStateTransitionType with
+            | Some GameStateTransitionType.JustStarted ->
                 Replies.justStartedGameAcknowledged()
-            | GameStateTransition.JustStopped ->
+            | Some GameStateTransitionType.JustStopped ->
                 Replies.justStoppedGameAcknowledged()
-            | GameStateTransition.StayedInProgress ->
-                Replies.stayedInProgressGameAcknowledged()
-            | GameStateTransition.StayedStopped ->
-                Replies.stayedStoppedGameAcknowledged()
+            | None ->
+                match newGameState with
+                | GameStateType.InProgress ->
+                    Replies.stayedInProgressGameAcknowledged()
+                | GameStateType.Stopped ->
+                    Replies.stayedStoppedGameAcknowledged()
+        
+        do Console.WriteLine "computed transition acknowledgment"
+
+        let queue =
+            match gameStateTransitionType with
+            | Some GameStateTransitionType.JustStarted ->
+                players |> List.ofSeq |> shuffle
+            | Some GameStateTransitionType.JustStopped ->
+                []
+            | None ->
+                currentGameStatus.QueueStatus.Queue
+
+        do Console.WriteLine "computed queue"
+
+        let currentTurn =
+            match gameStateTransitionType with
+            | None ->
+                currentGameStatus.QueueStatus.CurrentTurn
+            | Some GameStateTransitionType.JustStarted ->
+                Some {
+                    CurrentAnswerer = queue.[0]
+                    CurrentAsker = queue.[1]
+                }
+            | Some GameStateTransitionType.JustStopped ->
+                None
+
+        do Console.WriteLine "computed currentTurn"
+
+        let gameQueueTransition =
+            match gameStateTransitionType with
+            | Some GameStateTransitionType.JustStarted ->
+                Some {
+                    Type = GameQueueTransitionType.JustStarted
+                    Acknowledgment = Replies.justStartedQueueAcknowledged()
+                }
+            | Some GameStateTransitionType.JustStopped ->
+                Some {
+                    Type = GameQueueTransitionType.JustStopped
+                    Acknowledgment = Replies.justStoppedQueueAcknowledged()
+                }
+            | None ->
+                if currentTurn = currentGameStatus.QueueStatus.CurrentTurn then
+                    None
+                else
+                    if currentGameStatus.QueueStatus.Queue.Length = players.Count then
+                        Some {
+                            Type = GameQueueTransitionType.JustShuffled
+                            Acknowledgment = Replies.justShuffledQueueAcknowledged()
+                        }
+                    else
+                        Some {
+                            Type = GameQueueTransitionType.JustAdvanced
+                            Acknowledgment = Replies.justAdvancedQueueAcknowledged()
+                        }
+
+        do Console.WriteLine "computed gameQueueTransition"
+
+        let waitingPlayers = Set.ofList queue |> Set.difference players |> List.ofSeq
+
+        do Console.WriteLine "computed waitingPlayers"
 
         {
-            State = newGameState
-            StateTransition = gameStateTransition
-            Acknowledgment = gameStateTransitionAcknowledgment
+            StartStatus =
+                {
+                    StateType = newGameState
+                    TransitionType = gameStateTransitionType
+                    Acknowledgment = gameStateTransitionAcknowledgment
+                }
+            QueueStatus =
+                {
+                    Queue = queue
+                    WaitingPlayers = waitingPlayers
+                    CurrentTurn = currentTurn
+                    Transition = gameQueueTransition
+                }
         }
 
     interface IGame with
         member this.AddPlayer addPlayerRequest =
             let { AddPlayerRequest.Player = player } = addPlayerRequest
 
-            let previousGameState = getGameState()
-
             let addPlayerStatus =
-                if queue.Contains player then
+                if players.Contains player then
                     let rejection = Replies.addPlayerRejected()
                     AddPlayerStatus.AddPlayerRejected {
                         Player = player
                         Rejection = rejection
                     }
                 else
-                    queue.Add player
+                    players <- players.Add player
 
                     let addPlayerAcknowledgment = Replies.addPlayerAcknowledged()
 
-                    let gameStartStatus = getGameStartStatus previousGameState
-
-                    let gameStatus = {
-                        StartStatus = gameStartStatus
-                        Queue = List.ofSeq queue
-                    }
+                    currentGameStatus <- getGameStatus()
 
                     AddPlayerStatus.AddPlayerAcknowledged {
                         Player = player
                         Acknowledgment = addPlayerAcknowledgment
-                        GameStatus = gameStatus
+                        GameStatus = currentGameStatus
                     }
             
             {
@@ -152,23 +260,18 @@ type Game() =
         member this.RemovePlayer removePlayerRequest =
             let { RemovePlayerRequest.Player = player } = removePlayerRequest
 
-            let previousGameState = getGameState()
-
             let removePlayerStatus =
-                if queue.Remove player then
+                if players.Contains player then
+                    players <- players.Remove player
+
                     let removePlayerAcknowledgment = Replies.removePlayerAcknowledged()
 
-                    let gameStartStatus = getGameStartStatus previousGameState
-
-                    let gameStatus = {
-                        StartStatus = gameStartStatus
-                        Queue = List.ofSeq queue
-                    }
+                    currentGameStatus <- getGameStatus()
 
                     RemovePlayerStatus.RemovePlayerAcknowledged {
                         Player = player
                         Acknowledgment = removePlayerAcknowledgment
-                        GameStatus = gameStatus
+                        GameStatus = currentGameStatus
                     }
                 else
                     let rejection = Replies.removePlayerRejected()
@@ -182,30 +285,38 @@ type Game() =
             }
 
         member this.ShowQueue showQueueRequest =
-            match getGameState() with
-            | GameState.InProgress ->
+            match currentGameStatus.StartStatus.StateType with
+            | GameStateType.InProgress ->
                 {
                     ShowQueueStatus = ShowQueueStatus.ShowQueueAcknowledged {
-                         Queue = List.ofSeq queue
+                         QueueOrAcknowledgment = QueueOrAcknowledgment.Queue currentGameStatus.QueueStatus.Queue
+                         WaitingPlayers = currentGameStatus.QueueStatus.WaitingPlayers
                      }
                 }
-            | GameState.Stopped ->
-                {
-                    ShowQueueStatus = ShowQueueStatus.ShowQueueRejected {
-                        Rejection = Replies.showQueueRejected()
+            | GameStateType.Stopped ->
+                if players.Count > 0 then
+                    {
+                        ShowQueueStatus = ShowQueueStatus.ShowQueueAcknowledged {
+                            QueueOrAcknowledgment = QueueOrAcknowledgment.Acknowledgment (Replies.waitingForGameStartAcknowledged())
+                            WaitingPlayers = currentGameStatus.QueueStatus.WaitingPlayers
+                        }
                     }
-                }
+                else
+                    {
+                        ShowQueueStatus = ShowQueueStatus.ShowQueueRejected {
+                            Rejection = Replies.showQueueRejected()
+                        }
+                    }
 
         member this.WhoseTurn whoseTurnRequest =
-            match getGameState() with
-            | GameState.InProgress ->
+            match currentGameStatus.QueueStatus.CurrentTurn with
+            | Some currentTurn ->
                 {
                     WhoseTurnStatus = WhoseTurnStatus.WhoseTurnAcknowledged {
-                        CurrentPlayer = queue.[0]
-                        CurrentAsker = queue.[1]
+                        CurrentTurn = currentTurn
                     }
                 }
-            | GameState.Stopped ->
+            | None ->
                 {
                     WhoseTurnStatus = WhoseTurnStatus.WhoseTurnRejected {
                         Rejection = Replies.whoseTurnRejected()

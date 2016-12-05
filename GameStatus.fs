@@ -2,23 +2,45 @@
 
 open System
 
-type GameState =
+type GameStateType =
     | Stopped
     | InProgress
 
-type GameStateTransition =
+type GameStateTransitionType =
     | JustStarted
     | JustStopped
-    | StayedInProgress
-    | StayedStopped
+
 
 type GameStartStatus = {
-    State : GameState
-    StateTransition : GameStateTransition
+    StateType : GameStateType
+    TransitionType : GameStateTransitionType option
     Acknowledgment : string
+}
+
+type GameQueueTransitionType =
+    | JustStarted
+    | JustAdvanced
+    | JustStopped
+    | JustShuffled
+
+type GameQueueTransition = {
+    Type : GameQueueTransitionType
+    Acknowledgment : string
+}
+
+type GameTurn = {
+    CurrentAnswerer : Player
+    CurrentAsker : Player
+}
+
+type GameQueueStatus = {
+    Queue : Player list
+    WaitingPlayers : Player list
+    CurrentTurn: GameTurn option
+    Transition : GameQueueTransition option
 }
 
 type GameStatus = {
     StartStatus : GameStartStatus
-    Queue : Player list
+    QueueStatus : GameQueueStatus
 }

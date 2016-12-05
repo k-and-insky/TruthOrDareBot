@@ -3,8 +3,7 @@
 open System
 
 type WhoseTurnAcknowledged = {
-    CurrentAsker : Player
-    CurrentPlayer : Player
+    CurrentTurn : GameTurn
 }
 
 type WhoseTurnRejected = {

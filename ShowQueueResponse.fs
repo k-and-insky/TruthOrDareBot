@@ -2,8 +2,13 @@
 
 open System
 
+type QueueOrAcknowledgment =
+    | Queue of Player list
+    | Acknowledgment of string
+
 type ShowQueueAcknowledged = {
-    Queue : Player list
+    QueueOrAcknowledgment : QueueOrAcknowledgment
+    WaitingPlayers : Player list
 }
 
 type ShowQueueRejected = {
