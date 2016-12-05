@@ -1,0 +1,4 @@
+tord:
+  build: .
+  volumes:
+    - ./bin/Debug:/usr/src/app
