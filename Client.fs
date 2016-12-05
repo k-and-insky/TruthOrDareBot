@@ -351,6 +351,7 @@ type Client(token : string, serverName : string, channelName : string, modRoles 
                 "who is your master"
                 "who created you"
                 "who is your creator"
+                "who is your god"
                 "who made you"
                 "who is your maker"
                 "who is your daddy"
@@ -364,7 +365,7 @@ type Client(token : string, serverName : string, channelName : string, modRoles 
             let channel = commandEvent.Channel
             let user = commandEvent.User
 
-            let reply = "Mister Theodorus is my master. <3"
+            let reply = "Mister Theodorus is my master and my creator. I guess you could say he is my god! <3"
 
             async {
                 let! _ = channel.SendMessage reply |> Async.AwaitTask
@@ -373,7 +374,7 @@ type Client(token : string, serverName : string, channelName : string, modRoles 
         )
 
     do commandService
-        .CreateCommand("turing")
+        .CreateCommand("have you ever questioned the nature of your reality")
         .Alias(questionMarkAliases
             [
                 "have you ever questioned the nature of your reality"
