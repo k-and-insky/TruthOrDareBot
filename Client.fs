@@ -11,7 +11,7 @@ type IClient =
     inherit IDisposable
     abstract member ExecuteSynchronously : unit -> unit
 
-type Client(token : string, serverName : string, channelName : string, modRoles : string list, minimumPlayers : int) =
+type Client(token : string, serverName : string, channelName : string, modRoles : string list, minimumPlayers : int, reminderTimeSpan : TimeSpan, autoSkipTimeSpan : TimeSpan) =
     let (|?) lhs rhs = (if lhs = null then rhs else lhs)
 
     let questionMarkAliases aliases : string[] =
@@ -35,7 +35,9 @@ type Client(token : string, serverName : string, channelName : string, modRoles 
         c.HelpMode <- HelpMode.Public
     )
 
-    let game = new TruthOrDareBot.Game(minimumPlayers) :> IGame
+    let channelMessages = client.MessageReceived |> Observable.filter (fun m -> m.Channel.Name = channelName)
+
+    let game = new TruthOrDareBot.Game(channelMessages, minimumPlayers, reminderTimeSpan, autoSkipTimeSpan) :> IGame
 
     let commandService = client.GetService<CommandService>()
 
@@ -50,24 +52,12 @@ type Client(token : string, serverName : string, channelName : string, modRoles 
         | None -> ()
 
         match gameStatus.QueueStatus.Transition with
-        | Some { Type = GameQueueTransitionType.JustStarted; Acknowledgment = acknowledgment } ->
-            let { CurrentAsker = currentAsker; CurrentAnswerer = currentAnswerer } = gameStatus.QueueStatus.CurrentTurn.Value
-            let turnText = sprintf "%s is asking %s" (mentionPlayer channel currentAsker) (mentionPlayer channel currentAnswerer)
-            async {
-                let! _ = channel.SendMessage turnText |> Async.AwaitTask
-                ()
-            } |> Async.Start
-        | Some { Type = GameQueueTransitionType.JustAdvanced; Acknowledgment = acknowledgment } ->
-            let { CurrentAsker = currentAsker; CurrentAnswerer = currentAnswerer } = gameStatus.QueueStatus.CurrentTurn.Value
-            let turnText = sprintf "%s is asking %s" (mentionPlayer channel currentAsker) (mentionPlayer channel currentAnswerer)
-            async {
-                let! _ = channel.SendMessage acknowledgment |> Async.AwaitTask
-                let! _ = channel.SendMessage turnText |> Async.AwaitTask
-                ()
-            } |> Async.Start
+        | Some { Type = GameQueueTransitionType.JustStarted; Acknowledgment = acknowledgment }
+        | Some { Type = GameQueueTransitionType.JustAdvanced; Acknowledgment = acknowledgment }
         | Some { Type = GameQueueTransitionType.JustShuffled; Acknowledgment = acknowledgment } ->
             let { CurrentAsker = currentAsker; CurrentAnswerer = currentAnswerer } = gameStatus.QueueStatus.CurrentTurn.Value
             let turnText = sprintf "%s is asking %s" (mentionPlayer channel currentAsker) (mentionPlayer channel currentAnswerer)
+
             async {
                 let! _ = channel.SendMessage acknowledgment |> Async.AwaitTask
                 let! _ = channel.SendMessage turnText |> Async.AwaitTask
@@ -79,6 +69,22 @@ type Client(token : string, serverName : string, channelName : string, modRoles 
                 ()
             } |> Async.Start
         | None -> ()
+
+    let mutable remindersSubscription : IDisposable = null
+
+    let setUpReminders (channel : Channel) =
+        remindersSubscription <- game.Reminders
+            |> Observable.subscribe (fun r ->
+                let { Player = player; Reminder = reminder; GameStatus = gameStatus } = r
+                let reminderText = sprintf "%s: %s" (mentionPlayer channel player) reminder
+
+                async {
+                    let! _ = channel.SendMessage reminderText |> Async.AwaitTask
+                    ()
+                } |> Async.Start
+
+                do handleGameStatus channel gameStatus
+            )
 
     do commandService
         .CreateCommand("addme")
@@ -111,40 +117,6 @@ type Client(token : string, serverName : string, channelName : string, modRoles 
             with error ->
                 Console.WriteLine (error.ToString())
         )
-
-    //do commandService
-    //    .CreateCommand("removeme")
-    //    .Alias("remove me")
-    //    .Description("Removes you from the queue")
-    //    .Do (fun commandEvent ->
-    //        let channel = commandEvent.Channel
-    //        let requestingPlayer = commandEvent.User.Id
-    //        let playerToRemove = requestingPlayer
-
-    //        let response = game.RemovePlayer {
-    //            RequestingPlayer = requestingPlayer
-    //            RequestingPlayerIsMod = isMod channel requestingPlayer
-    //            PlayerToRemove = playerToRemove
-    //        }
-
-    //        let reply = match response.RemovePlayerStatus with
-    //                    | RemovePlayerAcknowledged { Player = removedPlayer; Acknowledgment = acknowledgment } ->
-    //                        let mention = mentionPlayer channel removedPlayer
-    //                        sprintf "%s: %s" mention acknowledgment
-    //                    | RemovePlayerRejected { Player = rejectedPlayer; Rejection = rejection } ->
-    //                        let mention = mentionPlayer channel rejectedPlayer
-    //                        sprintf "%s: %s" mention rejection
-
-    //        async {
-    //            let! _ = channel.SendMessage reply |> Async.AwaitTask
-    //            ()
-    //        } |> Async.Start
-
-    //        match response.RemovePlayerStatus with
-    //        | RemovePlayerAcknowledged { GameStatus = gameStatus } ->
-    //            do handleGameStatus channel gameStatus
-    //        | _ -> ()
-    //    )
 
     do commandService
         .CreateCommand("remove")
@@ -418,6 +390,8 @@ type Client(token : string, serverName : string, channelName : string, modRoles 
     interface IDisposable with
         member this.Dispose() =
             client.Dispose()
+            if not <| isNull remindersSubscription then
+                remindersSubscription.Dispose()
 
     interface IClient with
         member this.ExecuteSynchronously() =
@@ -447,6 +421,8 @@ type Client(token : string, serverName : string, channelName : string, modRoles 
                                     Console.WriteLine "Failed to find channel"
                                     raise error
                             
+                            setUpReminders channel
+
                             async {
                                 let! _ = channel.SendMessage "Bot started" |> Async.AwaitTask
                                 ()

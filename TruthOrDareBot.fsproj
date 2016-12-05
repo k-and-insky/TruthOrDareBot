@@ -80,6 +80,7 @@
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Player.fs" />
     <Compile Include="GameStatus.fs" />
+    <Compile Include="Reminder.fs" />
     <Compile Include="AddPlayerRequest.fs" />
     <Compile Include="AddPlayerResponse.fs" />
     <Compile Include="RemovePlayerRequest.fs" />

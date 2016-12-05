@@ -2,6 +2,8 @@
 
 open System
 open System.Collections.Generic
+open System.Linq
+open FSharp.Control.Reactive
 
 type IGame =
     abstract member AddPlayer : AddPlayerRequest -> AddPlayerResponse
@@ -9,6 +11,7 @@ type IGame =
     abstract member ShowQueue : ShowQueueRequest -> ShowQueueResponse
     abstract member WhoseTurn : WhoseTurnRequest -> WhoseTurnResponse
     abstract member NextTurn : NextTurnRequest -> NextTurnResponse
+    abstract member Reminders : IObservable<Reminder>
 
 module Rando =
     let random = Random()
@@ -136,7 +139,27 @@ module Replies =
             "Only mods or current asker/answerer can advance the queue."
         ]
 
-type Game(minimumPlayers : int) =
+    let askerHasntSaidAnythingReminder() =
+        sample [
+            "You haven't said anything in a while... Thinking of a good dare?"
+        ]
+
+    let answererHasntSaidAnythingReminder() =
+        sample [
+            "You haven't said anything in a while... Are you still there?"
+        ]
+
+    let askerAutoSkippedReminder() =
+        sample [
+            "You haven't said anything in too long, so you have been skipped and removed from the game!"
+        ]
+
+    let answererAutoSkippedReminder() =
+        sample [
+            "You haven't said anything in too long, so you have been skipped and removed from the game!"
+        ]
+
+type Game(channelMessages : IObservable<Discord.MessageEventArgs>, minimumPlayers : int, reminderTimeSpan : TimeSpan, autoSkipTimeSpan : TimeSpan) =
     let mutable queue : Player list = []
     let mutable players : Set<Player> = Set.empty
 
@@ -157,7 +180,7 @@ type Game(minimumPlayers : int) =
                 }
         }
 
-    let getGameStatus() : GameStatus =
+    let getNewGameStatus() : GameStatus =
         let (newGameState, gameStateTransitionType) =
             if players.Count >= minimumPlayers then
                 let transition =
@@ -254,10 +277,85 @@ type Game(minimumPlayers : int) =
                 }
         }
 
-    let updateGameStatus() =
-        currentGameStatus <- getGameStatus()
+    let reminders = Event<Reminder>()
+    let mutable subscriptions : IDisposable list = []
+
+    let rec updateGameStatus() =
+        currentGameStatus <- getNewGameStatus()
+
+        match currentGameStatus.QueueStatus.Transition with
+        | Some { Type = GameQueueTransitionType.JustStarted; Acknowledgment = acknowledgment }
+        | Some { Type = GameQueueTransitionType.JustAdvanced; Acknowledgment = acknowledgment }
+        | Some { Type = GameQueueTransitionType.JustShuffled; Acknowledgment = acknowledgment } ->
+            let { CurrentAsker = currentAsker; CurrentAnswerer = currentAnswerer } = currentGameStatus.QueueStatus.CurrentTurn.Value;
+
+            let currentAskerMessages = channelMessages |> Observable.filter (fun m -> m.User.Id = currentAsker)
+            let currentAnswererMessages = channelMessages |> Observable.filter (fun m -> m.User.Id = currentAnswerer)
+
+            for subscription in subscriptions do
+                do subscription.Dispose()
+
+            let reminderTimer = reminderTimeSpan |> Observable.timerSpan
+
+            let askerReminderSubscription =
+                reminderTimer
+                |> Observable.takeUntilOther currentAskerMessages
+                |> Observable.subscribe (fun _ ->
+                    do updateGameStatus()
+                    let reminder = Replies.askerHasntSaidAnythingReminder()
+                    reminders.Trigger { Player = currentAsker; Reminder = reminder; GameStatus = currentGameStatus }
+                )
+
+            let answererReminderSubscription =
+                reminderTimer
+                |> Observable.takeUntilOther currentAnswererMessages
+                |> Observable.subscribe (fun _ ->
+                    do updateGameStatus()
+                    let reminder = Replies.answererHasntSaidAnythingReminder()
+                    reminders.Trigger { Player = currentAnswerer; Reminder = reminder; GameStatus = currentGameStatus }
+                )
+
+            let autoSkipTimer = autoSkipTimeSpan |> Observable.timerSpan
+
+            let removePlayer playerToRemove =
+                if players.Contains currentAnswerer then
+                    players <- players.Remove playerToRemove
+
+                    if queue |> List.contains playerToRemove then
+                        queue <- queue |> List.except [playerToRemove]
+
+                    do updateGameStatus()
+
+            let askerAutoSkipSubscription =
+                autoSkipTimer
+                |> Observable.takeUntilOther currentAskerMessages
+                |> Observable.subscribe (fun _ ->
+                    removePlayer currentAsker
+                    let reminder = Replies.askerAutoSkippedReminder()
+                    reminders.Trigger { Player = currentAsker; Reminder = reminder; GameStatus = currentGameStatus }
+                )
+
+            let answererAutoSkipSubscription =
+                autoSkipTimer
+                |> Observable.takeUntilOther currentAnswererMessages
+                |> Observable.subscribe (fun _ ->
+                    removePlayer currentAnswerer
+                    let reminder = Replies.answererAutoSkippedReminder()
+                    reminders.Trigger { Player = currentAnswerer; Reminder = reminder; GameStatus = currentGameStatus }
+                )
+
+            subscriptions <-
+                [
+                    askerReminderSubscription
+                    answererReminderSubscription
+                    askerAutoSkipSubscription
+                    answererAutoSkipSubscription
+                ]
+        | _ -> ()
 
     interface IGame with
+        member this.Reminders = reminders.Publish |> Observable.asObservable
+
         member this.AddPlayer addPlayerRequest =
             let { AddPlayerRequest.RequestingPlayer = player } = addPlayerRequest
 
