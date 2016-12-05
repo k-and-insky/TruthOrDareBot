@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+﻿<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">x86</Platform>
@@ -67,6 +66,18 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="Player.fs" />
+    <Compile Include="GameStatus.fs" />
+    <Compile Include="AddPlayerRequest.fs" />
+    <Compile Include="AddPlayerResponse.fs" />
+    <Compile Include="RemovePlayerRequest.fs" />
+    <Compile Include="RemovePlayerResponse.fs" />
+    <Compile Include="ShowQueueRequest.fs" />
+    <Compile Include="ShowQueueResponse.fs" />
+    <Compile Include="WhoseTurnRequest.fs" />
+    <Compile Include="WhoseTurnResponse.fs" />
+    <Compile Include="Game.fs" />
+    <Compile Include="Client.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
