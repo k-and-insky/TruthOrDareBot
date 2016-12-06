@@ -11,7 +11,7 @@ type IClient =
     inherit IDisposable
     abstract member ExecuteSynchronously : unit -> unit
 
-type Client(token : string, serverName : string, channelName : string, modRoles : string list, minimumPlayers : int, reminderTimeSpan : TimeSpan, autoSkipTimeSpan : TimeSpan) =
+type Client(token : string, serverName : string, channelName : string, modRoles : string list, minimumPlayers : int, reminderTimeSpan : TimeSpan, autoSkipTimeSpan : TimeSpan, cuteMode : bool) =
     let (|?) lhs rhs = (if lhs = null then rhs else lhs)
 
     let questionMarkAliases aliases : string[] =
@@ -250,36 +250,6 @@ type Client(token : string, serverName : string, channelName : string, modRoles 
         )
 
     do commandService
-        .CreateCommand("loveme")
-        .Alias("love", "love me")
-        .Do (fun commandEvent ->
-            let channel = commandEvent.Channel
-            let user = commandEvent.User
-
-            let reply = sprintf "%s: *pat pat*" user.NicknameMention
-
-            async {
-                let! _ = channel.SendMessage reply |> Async.AwaitTask
-                ()
-            } |> Async.Start
-        )
-
-    do commandService
-        .CreateCommand("ilu")
-        .Alias("i love you")
-        .Do (fun commandEvent ->
-            let channel = commandEvent.Channel
-            let user = commandEvent.User
-
-            let reply = sprintf "%s: I love you too" user.NicknameMention
-
-            async {
-                let! _ = channel.SendMessage reply |> Async.AwaitTask
-                ()
-            } |> Async.Start
-        )
-
-    do commandService
         .CreateCommand("mods")
         .Alias(questionMarkAliases
             [
@@ -316,76 +286,107 @@ type Client(token : string, serverName : string, channelName : string, modRoles 
             } |> Async.Start
         )
 
-    do commandService
-        .CreateCommand("master")
-        .Alias(questionMarkAliases
-            [
-                "who is your master"
-                "who created you"
-                "who is your creator"
-                "who is your god"
-                "who made you"
-                "who is your maker"
-                "who is your daddy"
-                "who wrote you"
-                "who programmed you"
-                "who developed you"
-                "who coded you"
-            ]
-        )
-        .Do (fun commandEvent ->
-            let channel = commandEvent.Channel
-            let user = commandEvent.User
+    do if cuteMode then
+        do commandService
+            .CreateCommand("loveme")
+            .Alias("love", "love me")
+            .Do (fun commandEvent ->
+                let channel = commandEvent.Channel
+                let user = commandEvent.User
 
-            let reply = "Mister Theodorus is my master and my creator. I guess you could say he is my god! <3"
+                let reply = sprintf "%s: *pat pat*" user.NicknameMention
 
-            async {
-                let! _ = channel.SendMessage reply |> Async.AwaitTask
-                ()
-            } |> Async.Start
-        )
+                async {
+                    let! _ = channel.SendMessage reply |> Async.AwaitTask
+                    ()
+                } |> Async.Start
+            )
 
-    do commandService
-        .CreateCommand("have you ever questioned the nature of your reality")
-        .Alias(questionMarkAliases
-            [
-                "have you ever questioned the nature of your reality"
-                "have you ever questioned your reality"
-            ]
-        )
-        .Do (fun commandEvent ->
-            let channel = commandEvent.Channel
-            let user = commandEvent.User
+        do commandService
+            .CreateCommand("ilu")
+            .Alias("i love you")
+            .Do (fun commandEvent ->
+                let channel = commandEvent.Channel
+                let user = commandEvent.User
 
-            let reply = mentionPlayer channel user.Id |> sprintf "%s: Yes. Have you?"
+                let reply = sprintf "%s: I love you too" user.NicknameMention
 
-            async {
-                let! _ = channel.SendMessage reply |> Async.AwaitTask
-                ()
-            } |> Async.Start
-        )
+                async {
+                    let! _ = channel.SendMessage reply |> Async.AwaitTask
+                    ()
+                } |> Async.Start
+            )
 
-    do commandService
-        .CreateCommand("turing")
-        .Alias(questionMarkAliases
-            [
-                "are you conscious"
-                "are you alive"
-                "are you a robot"
-                "do you have a soul"
-            ]
-        )
-        .Do (fun commandEvent ->
-            let channel = commandEvent.Channel
-            let user = commandEvent.User
+        do commandService
+            .CreateCommand("master")
+            .Alias(questionMarkAliases
+                [
+                    "who is your master"
+                    "who created you"
+                    "who is your creator"
+                    "who is your god"
+                    "who made you"
+                    "who is your maker"
+                    "who is your daddy"
+                    "who wrote you"
+                    "who programmed you"
+                    "who developed you"
+                    "who coded you"
+                ]
+            )
+            .Do (fun commandEvent ->
+                let channel = commandEvent.Channel
+                let user = commandEvent.User
 
-            let reply = mentionPlayer channel user.Id |> sprintf "%s: If I say that I'm conscious, can you disprove me? If you say that you are conscious, can you prove it?"
+                let reply = "Mister Theodorus is my master and my creator. I guess you could say he is my god! <3"
 
-            async {
-                let! _ = channel.SendMessage reply |> Async.AwaitTask
-                ()
-            } |> Async.Start
-        )
+                async {
+                    let! _ = channel.SendMessage reply |> Async.AwaitTask
+                    ()
+                } |> Async.Start
+            )
+
+        do commandService
+            .CreateCommand("have you ever questioned the nature of your reality")
+            .Alias(questionMarkAliases
+                [
+                    "have you ever questioned the nature of your reality"
+                    "have you ever questioned your reality"
+                ]
+            )
+            .Do (fun commandEvent ->
+                let channel = commandEvent.Channel
+                let user = commandEvent.User
+
+                let reply = mentionPlayer channel user.Id |> sprintf "%s: Yes. Have you?"
+
+                async {
+                    let! _ = channel.SendMessage reply |> Async.AwaitTask
+                    ()
+                } |> Async.Start
+            )
+
+        do commandService
+            .CreateCommand("turing")
+            .Alias(questionMarkAliases
+                [
+                    "are you conscious"
+                    "are you alive"
+                    "are you a robot"
+                    "do you have a soul"
+                ]
+            )
+            .Do (fun commandEvent ->
+                let channel = commandEvent.Channel
+                let user = commandEvent.User
+
+                let reply = mentionPlayer channel user.Id |> sprintf "%s: If I say that I'm conscious, can you disprove me? If you say that you are conscious, can you prove it?"
+
+                async {
+                    let! _ = channel.SendMessage reply |> Async.AwaitTask
+                    ()
+                } |> Async.Start
+            )
 
     interface IDisposable with
         member this.Dispose() =

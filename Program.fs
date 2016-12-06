@@ -8,10 +8,11 @@ let modRoles = ["Administrators"; "Moderators"; "Staff"; "Ambassadors"]
 let minimumPlayers = 4
 let reminderTimeSpan = TimeSpan(0, 3, 0)
 let autoSkipTimeSpan = TimeSpan(0, 5, 0)
+let cuteMode = false
 
 [<EntryPoint>]
 let main _ = 
     printfn "Starting TruthOrDareBot"
-    use client = new Client(token, serverName, channelName, modRoles, minimumPlayers, reminderTimeSpan, autoSkipTimeSpan) :> IClient
+    use client = new Client(token, serverName, channelName, modRoles, minimumPlayers, reminderTimeSpan, autoSkipTimeSpan, cuteMode) :> IClient
     do client.ExecuteSynchronously()
     0
