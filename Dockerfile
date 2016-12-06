@@ -12,8 +12,4 @@ RUN yes | certmgr -ssl https://discordapp.com
 
 RUN yes | certmgr -ssl https://gateway.discord.gg
 
-RUN mono nuget.exe install -OutputDirectory packages
-
-RUN xbuild /p:Configuration=Release
-
 CMD ["mono", "bin/Release/TruthOrDareBot.exe"]
