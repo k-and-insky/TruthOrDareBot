@@ -10,10 +10,11 @@ All in one command:
 
 ```
 apt-get update &&
-apt-get -y install mono-complete nuget fsharp &&
+apt-get -y install mono-complete fsharp curl &&
+curl -LO https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
 yes | certmgr -ssl https://discordapp.com &&
 yes | certmgr -ssl https://gateway.discord.gg &&
-nuget install &&
+mono nuget.exe install -OutputDirectory packages &&
 xbuild /p:Configuration=Release &&
 mono bin/Release/TruthOrDareBot.exe
 ```
