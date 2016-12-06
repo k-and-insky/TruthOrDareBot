@@ -1,4 +1,6 @@
 tord:
   build: .
+  environment:
+    - TRUTH_OR_DARE_BOT_TOKEN
   volumes:
     - ./bin/Debug:/usr/src/app
