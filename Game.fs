@@ -104,7 +104,7 @@ type Game(channelMessages : IObservable<Discord.MessageEventArgs>, minimumPlayer
                 if currentTurn = currentGameStatus.QueueStatus.CurrentTurn then
                     None
                 else
-                    if currentGameStatus.QueueStatus.Queue.Length = players.Count then
+                    if queue.Length = players.Count then
                         Some {
                             Type = GameQueueTransitionType.JustShuffled
                             Acknowledgment = Replies.justShuffledQueueAcknowledged()
