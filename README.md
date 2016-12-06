@@ -4,9 +4,12 @@ TruthOrDareBot is a Discord bot written in F#, that runs on Mono 4.4.2, using Di
 
 ## Setup
 
+### General
+
 - Install Xamarin Studio, or at least xbuild and nuget
 - If you want to run the app locally, install Mono 4.4.2 (4.6+ will throw a SocketException due to this bug in Discord.Net: https://github.com/RogueException/Discord.Net/issues/297)
 - Otherwise, you can run the app via Docker by installing Docker and docker-compose
+- Install Discord SSL certs via `certmgr -ssl https://discordapp.com && certmgr -ssl https://gateway.discord.gg`
 - Install the packages via Xamarin Studio or nuget
 - Build the app
 - Run the app via mono or `docker-compose up` (`docker-compose up -d` to detach)
