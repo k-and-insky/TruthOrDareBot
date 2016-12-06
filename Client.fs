@@ -7,13 +7,13 @@ open FSharp.Control.Reactive
 open Discord
 open Discord.Commands
 
+open Coalesce
+
 type IClient =
     inherit IDisposable
     abstract member ExecuteSynchronously : unit -> unit
 
 type Client(token : string, serverName : string, channelName : string, modRoles : string list, minimumPlayers : int, reminderTimeSpan : TimeSpan, autoSkipTimeSpan : TimeSpan, cuteMode : bool) =
-    let (|?) lhs rhs = (if lhs = null then rhs else lhs)
-
     let questionMarkAliases aliases : string[] =
         aliases |> Seq.map (fun a -> a + "?") |> Seq.append aliases |> Seq.toArray
 

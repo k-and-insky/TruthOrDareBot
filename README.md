@@ -51,7 +51,19 @@ But for now, this is close enough. The Reminders being represented as an Event i
 
 ## Deployment
 
-- The auth token is based on an environment variable, `TRUTH_OR_DARE_BOT_TOKEN`
+### Environment Variables
+
+- `TRUTH_OR_DARE_BOT_TOKEN`: The bot auth token
+- `TRUTH_OR_DARE_BOT_SERVER`: The name of the server to listen on (in case the bot is registered to multiple servers); defaults to "truth-or-dare-bot-test"
+- `TRUTH_OR_DARE_BOT_CHANNEL`: The name of the channel to listen on; defaults to "truth-or-dare"
+- `TRUTH_OR_DARE_BOT_MOD_ROLES`: The semicolon-delimited list of roles allowed to moderate the bot; defaults to "Administrators; Moderators; Staff; Ambassadors"
+- `TRUTH_OR_DARE_BOT_MINIMUM_PLAYERS`: The minimum number of players to wait for before starting the game; defaults to "4"
+- `TRUTH_OR_DARE_BOT_REMINDER_MINUTES`: The number of minutes to wait after a turn starts before pinging players who have remained silent; defaults to "3"
+- `TRUTH_OR_DARE_BOT_AUTO_SKIP_MINUTES`: The number of minutes to wait after a turn starts before removing players who have remained silent; defaults to "5"
+- `TRUTH_OR_DARE_CUTE_MODE`: Enables some cutesy commands; defaults to "false"
+
+### Notes
+
 - Make sure that dependency DLLs are in the same directory as the binary.
 - There is no real error logging. Caught errors are written to stdout, but the Discord.Net package generally does a piss-poor job of catching them, so the bot often fails silently.
 - The bot will message "Bot started" on startup, when it finds the matching channel.
