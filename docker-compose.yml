@@ -2,7 +2,9 @@ tord:
   build: .
   environment:
     - TRUTH_OR_DARE_BOT_TOKEN
-    - TRUTH_OR_DARE_BOT_MINIMUM_PLAYERS=2
+    - TRUTH_OR_DARE_BOT_MINIMUM_PLAYERS=3
     - TRUTH_OR_DARE_CUTE_MODE=true
+    - TRUTH_OR_DARE_BOT_REMINDER_MINUTES=1
+    - TRUTH_OR_DARE_BOT_AUTO_SKIP_MINUTES=2
   volumes:
     - .:/usr/src/app
