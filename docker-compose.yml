@@ -3,4 +3,4 @@ tord:
   environment:
     - TRUTH_OR_DARE_BOT_TOKEN
   volumes:
-    - ./bin/Debug:/usr/src/app
+    - .:/usr/src/app

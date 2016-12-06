@@ -4,6 +4,20 @@ TruthOrDareBot is a Discord bot written in F#, that runs on Mono 4.4.2, using Di
 
 ## Setup
 
+### Ubuntu 16.04
+
+All in one command:
+
+```
+apt-get update &&
+apt-get -y install mono-complete nuget fsharp &&
+yes | certmgr -ssl https://discordapp.com &&
+yes | certmgr -ssl https://gateway.discord.gg &&
+nuget install &&
+xbuild /p:Configuration=Release &&
+mono bin/Release/TruthOrDareBot.exe
+```
+
 ### General
 
 - Install Xamarin Studio, or at least xbuild and nuget
