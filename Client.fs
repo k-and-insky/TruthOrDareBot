@@ -35,7 +35,10 @@ type Client(token : string, serverName : string, channelName : string, modRoles 
         c.HelpMode <- HelpMode.Public
     )
 
-    let channelMessages = client.MessageReceived |> Observable.filter (fun m -> m.Channel.Name = channelName)
+    let channelMessages =
+        client.MessageReceived
+        |> Observable.filter (fun m -> m.Channel.Name = channelName)
+        |> Observable.map (fun m -> { Text = m.Message.Text; Sender = m.User.Id })
 
     let game = new TruthOrDareBot.Game(channelMessages, minimumPlayers, reminderTimeSpan, autoSkipTimeSpan) :> IGame
 

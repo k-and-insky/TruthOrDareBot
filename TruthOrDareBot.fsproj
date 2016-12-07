@@ -79,6 +79,7 @@
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Coalesce.fs" />
     <Compile Include="Player.fs" />
+    <Compile Include="Message.fs" />
     <Compile Include="GameStatus.fs" />
     <Compile Include="Reminder.fs" />
     <Compile Include="AddPlayerRequest.fs" />

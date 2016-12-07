@@ -15,7 +15,7 @@ type IGame =
 
 open Rando
 
-type Game(channelMessages : IObservable<Discord.MessageEventArgs>, minimumPlayers : int, reminderTimeSpan : TimeSpan, autoSkipTimeSpan : TimeSpan) =
+type Game(channelMessages : IObservable<Message>, minimumPlayers : int, reminderTimeSpan : TimeSpan, autoSkipTimeSpan : TimeSpan) =
     let mutable queue : Player list = []
     let mutable players : Set<Player> = Set.empty
 
@@ -145,8 +145,8 @@ type Game(channelMessages : IObservable<Discord.MessageEventArgs>, minimumPlayer
         | Some { Type = GameQueueTransitionType.JustShuffled; Acknowledgment = acknowledgment } ->
             let { CurrentAsker = currentAsker; CurrentAnswerer = currentAnswerer } = currentGameStatus.QueueStatus.CurrentTurn.Value;
 
-            let currentAskerMessages = channelMessages |> Observable.filter (fun m -> m.User.Id = currentAsker)
-            let currentAnswererMessages = channelMessages |> Observable.filter (fun m -> m.User.Id = currentAnswerer)
+            let currentAskerMessages = channelMessages |> Observable.filter (fun m -> m.Sender = currentAsker)
+            let currentAnswererMessages = channelMessages |> Observable.filter (fun m -> m.Sender = currentAnswerer)
 
             for subscription in subscriptions do
                 do subscription.Dispose()

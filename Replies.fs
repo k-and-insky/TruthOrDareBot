@@ -4,34 +4,50 @@ open System
 open Rando
 
 module Replies =
-    let addPlayerAcknowledged() =
-        sample [
+    let addPlayerAcknowledgments =
+        [
             "Roger that."
             "Alrighty!"
             "10-4, good buddy."
         ]
 
-    let addPlayerRejected() =
-        sample [
+    let addPlayerAcknowledged() =
+        sample addPlayerAcknowledgments
+
+    let addPlayerRejections =
+        [
             "You're already in the game, dingus."
         ]
 
-    let removePlayerSelfAcknowledged() =
-        sample [
+    let addPlayerRejected() =
+        sample addPlayerRejections
+
+    let removePlayerSelfAcknowledgments =
+        [
             "Aww, you're no fun."
             "Alright... Leave if you must."
         ]
 
-    let removePlayerOtherAcknowledged() =
-        sample [
+    let removePlayerSelfAcknowledged() =
+        sample removePlayerSelfAcknowledgments
+
+    let removePlayerOtherAcknowledgments =
+        [
             "Alright, I removed them, but I'm not happy about it."
             "For you, anything. *Poof!* They're gone."
         ]
 
-    let removePlayerSelfNotInGameRejected() =
-        sample [
+    let removePlayerOtherAcknowledged() =
+        sample removePlayerOtherAcknowledgments
+
+    let removePlayerSelfNotInGameRejections =
+        [
             "You're not in the game, silly!"
         ]
+
+    let removePlayerSelfNotInGameRejected() =
+        sample removePlayerSelfNotInGameRejections
+
 
     let removePlayerOtherNotInGameRejected() =
         sample [

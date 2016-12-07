@@ -3,6 +3,8 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
 Project("{f2a71f9b-5d33-465a-a702-920d77279786}") = "TruthOrDareBot", "TruthOrDareBot.fsproj", "{EF774482-3886-47A4-AF21-37D686BA4B86}"
 EndProject
+Project("{f2a71f9b-5d33-465a-a702-920d77279786}") = "TruthOrDareBot.Test", "TruthOrDareBot.Test\TruthOrDareBot.Test.fsproj", "{CE6671D2-7A82-4C5F-A58E-34B8C96EACAE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x86 = Debug|x86
@@ -13,5 +15,9 @@ Global
 		{EF774482-3886-47A4-AF21-37D686BA4B86}.Debug|x86.Build.0 = Debug|x86
 		{EF774482-3886-47A4-AF21-37D686BA4B86}.Release|x86.ActiveCfg = Release|x86
 		{EF774482-3886-47A4-AF21-37D686BA4B86}.Release|x86.Build.0 = Release|x86
+		{CE6671D2-7A82-4C5F-A58E-34B8C96EACAE}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{CE6671D2-7A82-4C5F-A58E-34B8C96EACAE}.Debug|x86.Build.0 = Debug|Any CPU
+		{CE6671D2-7A82-4C5F-A58E-34B8C96EACAE}.Release|x86.ActiveCfg = Release|Any CPU
+		{CE6671D2-7A82-4C5F-A58E-34B8C96EACAE}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
