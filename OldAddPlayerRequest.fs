@@ -1,8 +1,7 @@
 ﻿namespace TruthOrDareBot
-
+    
 open System
 
-type RemovePlayerRequest = {
+type OldAddPlayerRequest = {
     RequestingPlayer : Player
-    PlayerToRemove : Player
 }

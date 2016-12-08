@@ -3,20 +3,15 @@
 open System
 
 type AddPlayerAcknowledged = {
-    Player : Player
+    RequestingPlayer : Player
     Acknowledgment : string
-    GameStatus : GameStatus
 }
 
 type AddPlayerRejected = {
-    Player : Player
+    RequestingPlayer : Player
     Rejection : string
 }
 
-type AddPlayerStatus =
+type AddPlayerResponse =
     | AddPlayerAcknowledged of AddPlayerAcknowledged
     | AddPlayerRejected of AddPlayerRejected
-
-type AddPlayerResponse = {
-    AddPlayerStatus : AddPlayerStatus
-}

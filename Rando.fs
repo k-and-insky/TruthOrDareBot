@@ -2,11 +2,16 @@
 
 open System
 
-module Rando =
-    let random = Random()
+type IRando =
+    abstract member Sample : 'a list -> 'a
+    abstract member Shuffle : 'a list -> 'a list
 
-    let sample (ls : 'a list) =
-        ls.[random.Next ls.Length]
+type Rando () =
+    let random = Random ()
 
-    let shuffle ls =
-        ls |> List.sortBy (fun e -> random.Next())
+    interface IRando with
+        member this.Sample (ls : 'a list) =
+            ls.[random.Next ls.Length]
+
+        member this.Shuffle ls =
+            ls |> List.sortBy (fun e -> random.Next())

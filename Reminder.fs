@@ -5,5 +5,5 @@ open System
 type Reminder = {
     Player : Player
     Reminder : string
-    GameStatus : GameStatus
+    GameStatus : OldGameStatus
 }

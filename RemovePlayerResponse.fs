@@ -3,20 +3,15 @@
 open System
 
 type RemovePlayerAcknowledged = {
-    Player : Player
+    RequestingPlayer : Player
     Acknowledgment : string
-    GameStatus : GameStatus
 }
 
 type RemovePlayerRejected = {
-    Player : Player
+    RequestingPlayer : Player
     Rejection : string
 }
 
-type RemovePlayerStatus =
+type RemovePlayerResponse =
     | RemovePlayerAcknowledged of RemovePlayerAcknowledged
     | RemovePlayerRejected of RemovePlayerRejected
-
-type RemovePlayerResponse = {
-    RemovePlayerStatus : RemovePlayerStatus
-}

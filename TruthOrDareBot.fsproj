@@ -6,6 +6,7 @@
     <OutputType>Exe</OutputType>
     <RootNamespace>TruthOrDareBot</RootNamespace>
     <AssemblyName>TruthOrDareBot</AssemblyName>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
     <DebugSymbols>true</DebugSymbols>
@@ -38,9 +39,6 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
-    <Reference Include="Newtonsoft.Json">
-      <HintPath>packages\Newtonsoft.Json.8.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
-    </Reference>
     <Reference Include="Nito.AsyncEx.Concurrent">
       <HintPath>packages\Nito.AsyncEx.3.0.1\lib\net45\Nito.AsyncEx.Concurrent.dll</HintPath>
     </Reference>
@@ -62,29 +60,45 @@
     <Reference Include="Discord.Net.Commands">
       <HintPath>packages\Discord.Net.Commands.0.9.6\lib\net45\Discord.Net.Commands.dll</HintPath>
     </Reference>
+    <Reference Include="System.Net" />
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>packages\Newtonsoft.Json.9.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="WindowsBase" />
+    <Reference Include="FSharp.Control.Reactive">
+      <HintPath>packages\FSharp.Control.Reactive.3.5.0\lib\net45\FSharp.Control.Reactive.dll</HintPath>
+    </Reference>
     <Reference Include="System.Reactive.Interfaces">
-      <HintPath>packages\Rx-Interfaces.2.2.5\lib\net45\System.Reactive.Interfaces.dll</HintPath>
+      <HintPath>packages\System.Reactive.Interfaces.3.1.1\lib\net45\System.Reactive.Interfaces.dll</HintPath>
     </Reference>
     <Reference Include="System.Reactive.Core">
-      <HintPath>packages\Rx-Core.2.2.5\lib\net45\System.Reactive.Core.dll</HintPath>
+      <HintPath>packages\System.Reactive.Core.3.1.1\lib\net45\System.Reactive.Core.dll</HintPath>
     </Reference>
     <Reference Include="System.Reactive.Linq">
-      <HintPath>packages\Rx-Linq.2.2.5\lib\net45\System.Reactive.Linq.dll</HintPath>
+      <HintPath>packages\System.Reactive.Linq.3.1.1\lib\net45\System.Reactive.Linq.dll</HintPath>
     </Reference>
-    <Reference Include="FSharp.Control.Reactive">
-      <HintPath>packages\FSharp.Control.Reactive.3.4.1\lib\net45\FSharp.Control.Reactive.dll</HintPath>
+    <Reference Include="System.Reactive.PlatformServices">
+      <HintPath>packages\System.Reactive.PlatformServices.3.1.1\lib\net45\System.Reactive.PlatformServices.dll</HintPath>
     </Reference>
+    <Reference Include="System.Reactive.Windows.Threading">
+      <HintPath>packages\System.Reactive.Windows.Threading.3.1.1\lib\net45\System.Reactive.Windows.Threading.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Windows" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Coalesce.fs" />
     <Compile Include="Player.fs" />
     <Compile Include="Message.fs" />
+    <Compile Include="GameTurn.fs" />
     <Compile Include="GameStatus.fs" />
     <Compile Include="Reminder.fs" />
+    <Compile Include="OldAddPlayerResponse.fs" />
+    <Compile Include="OldAddPlayerRequest.fs" />
     <Compile Include="AddPlayerRequest.fs" />
     <Compile Include="AddPlayerResponse.fs" />
     <Compile Include="RemovePlayerRequest.fs" />
+    <Compile Include="OldRemovePlayerResponse.fs" />
     <Compile Include="RemovePlayerResponse.fs" />
     <Compile Include="ShowQueueRequest.fs" />
     <Compile Include="ShowQueueResponse.fs" />
@@ -93,12 +107,17 @@
     <Compile Include="NextTurnRequest.fs" />
     <Compile Include="NextTurnResponse.fs" />
     <Compile Include="Rando.fs" />
+    <Compile Include="GameState.fs" />
+    <Compile Include="GameUpdate.fs" />
     <Compile Include="Replies.fs" />
+    <Compile Include="IGame.fs" />
+    <Compile Include="OldIGame.fs" />
     <Compile Include="Game.fs" />
+    <Compile Include="Interaction.fs" />
     <Compile Include="Client.fs" />
-    <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Program.fs" />
     <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(FSharpTargetsPath)" />
